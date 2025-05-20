@@ -8,7 +8,17 @@ const usersList = document.querySelector(".user-list")
 const roomsList = document.querySelector(".room-list")
 const chatDisplay = document.querySelector(".chat-display")
 
-function sendMessage(e) {
+const enterRoom = (e) => {
+    e.preventDefault()
+    if (nameInput.value && chatRoom.value) {
+        socket.emit('enterRoom', {
+            name: nameInput.value,
+            room: chatRoom.value
+        })
+    }
+}
+
+const sendMessage = (e) => {
     e.preventDefault()
     if (nameInput.value && chatRoom.value && msgInput.value) {
         socket.emit('message', {
