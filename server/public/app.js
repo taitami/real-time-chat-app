@@ -10,8 +10,11 @@ const chatDisplay = document.querySelector(".chat-display")
 
 function sendMessage(e) {
     e.preventDefault()
-    if (msgInput.value) {
-        socket.emit('message', msgInput.value)
+    if (nameInput.value && chatRoom.value && msgInput.value) {
+        socket.emit('message', {
+            text: msgInput.value,
+            name: nameInput.value
+        })
         msgInput.value = ""
     }
     msgInput.focus()
