@@ -12,3 +12,10 @@ function sendMessage(e) {
 
 document.querySelector('form')
     .addEventListener('submit', sendMessage);
+
+socket.on("message", (data) => {
+    const li = document.createElement('li')
+    li.textContent = data
+    document.querySelector('ul').appendChild(li)
+})    
+
