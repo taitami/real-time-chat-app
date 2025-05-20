@@ -27,4 +27,8 @@ io.on('connection', socket => {
     socket.on('message', data => {
         io.emit('message', `${socket.id.substring(0, 5)}: ${data}`)
     })
+
+    socket.on('activity', name => {
+        socket.broadcast.emit('activity', name)
+    })
 })
