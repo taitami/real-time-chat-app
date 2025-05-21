@@ -50,3 +50,12 @@ const buildMsg = (name, text) => {
         }).format(new Date())
     }
 }
+
+const activateUser = (id, name, room) => {
+    const user = { id, name, room }
+    usersState.setUsers([
+        ...usersState.users.filter(user => user.id !== id),
+        user
+    ])
+    return user
+}
