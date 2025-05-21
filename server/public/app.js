@@ -30,8 +30,10 @@ const sendMessage = (e) => {
     msgInput.focus()
 };
 
-document.querySelector('form')
+document.querySelector('.form-msg')
     .addEventListener('submit', sendMessage);
+document.querySelector('.form-join')
+    .addEventListener('submit', enterRoom);
 
 socket.on("message", (data) => {
     activity.textContent = ""
@@ -41,7 +43,7 @@ socket.on("message", (data) => {
 })    
 
 msgInput.addEventListener('keypress', () => {
-    socket.emit("activity", socket.id.substring(0, 5));
+    socket.emit("activity", nameInput.value);
 });
 
 let activityTimer
