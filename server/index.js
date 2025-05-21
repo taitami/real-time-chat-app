@@ -65,3 +65,7 @@ const userLeavesApp = (id) => {
         usersState.users.filter(user => user.id !== id)
     )
 }
+
+const getUsersInRoom = (room) => {
+    return UsersState.users.filter(user => user.room === room)
+}
