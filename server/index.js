@@ -59,3 +59,9 @@ const activateUser = (id, name, room) => {
     ])
     return user
 }
+
+const userLeavesApp = (id) => {
+    usersState.setUsers(
+        usersState.users.filter(user => user.id !== id)
+    )
+}
