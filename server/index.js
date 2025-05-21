@@ -41,3 +41,12 @@ io.on('connection', socket => {
         socket.broadcast.emit('activity', name)
     })
 })
+
+const buildMsg = (name, text) => {
+    return { name, text, 
+        time: new Intl.DateTimeFormat("default", {
+            hour: "numeric",
+            minute: "numeric"
+        }).format(new Date())
+    }
+}
