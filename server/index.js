@@ -67,5 +67,9 @@ const userLeavesApp = (id) => {
 }
 
 const getUsersInRoom = (room) => {
-    return UsersState.users.filter(user => user.room === room)
+    return usersState.users.filter(user => user.room === room)
+}
+
+const getAllActiveRooms = () => {
+    return Array.from(new Set(usersState.users.map(user => user.room)))
 }
