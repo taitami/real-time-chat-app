@@ -33,6 +33,30 @@ const io = new Server(expressServer, {
 io.on('connection', socket => {
     console.log(`user ${socket.id} connected`)
 
+    socket.on('enterRoom', ({name, room}) => {
+        const prevRoom = getUser(socket.id)?.room
+        if (prevRoom) {
+            socket.leave(prevRoom)
+        }
+
+        const user = activateUser(socket.id, name, room)
+        if (prevRoom) {
+            io.to(prevRoom).emit("userList", {
+                users: getUsersInRoom(prevRoom)
+            })
+        }
+
+        socket.join(user.room)
+        io.to(user.room).emit("userList", {
+            users: getUsersInRoom(user.room)
+        })
+
+        io.emit("roomList", {
+            rooms: getAllActiveRooms()
+        })
+    })
+
+
     socket.on('message', data => {
         io.emit('message', `${socket.id.substring(0, 5)}: ${data}`)
     })
