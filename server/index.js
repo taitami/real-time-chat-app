@@ -57,12 +57,18 @@ io.on('connection', socket => {
     })
 
 
-    socket.on('message', data => {
-        io.emit('message', `${socket.id.substring(0, 5)}: ${data}`)
+    socket.on('message', ({name, text}) => {
+        const room = getUser(socket.id)?.room
+        if (room) {
+            io.to(room).emit('message', buildMsg(name, text))
+        }
     })
 
     socket.on('activity', name => {
-        socket.broadcast.emit('activity', name)
+        const room = getUser(socket.id)?.room
+        if (room) {
+            socket.broadcast.to(room).emit('activity', name)
+        }
     })
 })
 
