@@ -22,6 +22,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 app.use(express.static(path.join(__dirname, 'public')));
 
+import connectDB from './config/db.js'
+connectDB();
 
 const usersState = {
     users: [],
