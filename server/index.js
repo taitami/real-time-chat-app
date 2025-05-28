@@ -2,7 +2,11 @@ import express from "express";
 import { Server } from "socket.io";
 import {fileURLToPath} from "url";
 import path from "path";
+import http from "http"
+import dotenv from "dotenv"
+import cors from "cors"
 
+dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 const PORT = process.env.PORT || 3500;
 const app = express();
 
@@ -11,11 +15,13 @@ const __dirname = path.dirname(__filename);
 
 const ADMIN = "Admin"
 
+app.use(cors({ 
+    origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:3000"], 
+}));
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true })); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-const expressServer = app.listen(PORT, () => {
-    console.log(`server is listening on port ${PORT}`)
-});
 
 const usersState = {
     users: [],
@@ -24,9 +30,12 @@ const usersState = {
     }
 }
 
-const io = new Server(expressServer, {
+const server = http.createServer(app)
+const io = new Server(server, {
     cors: {
-        origin: process.NODE_ENV === "production" ? false : ["http://localhost:5500", "http://127.0.0.1:5500"]
+        origin: process.env.NODE_ENV === "production" ? false : ["http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:3000"],
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
