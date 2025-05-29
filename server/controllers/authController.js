@@ -40,3 +40,26 @@ export const registerUser = async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 }
+
+export const loginUser = async (req, res) => {
+    const {emailOrUsername, password} = req.body;
+    try {
+        const user = await User.findOne({
+            $or: [{email: emailOrUsername}, {username: emailOrUsername}]
+        })
+
+        if (user && (await user.matchPassword(password))) {
+            res.json({
+                _id: user._id,
+                username: user.username,
+                email: user.email,
+                token: generateToken(user._id),
+            })
+        } else {
+            res.status(401).json({ message: 'Invalid email/username or password' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error during login' });
+    }
+}
