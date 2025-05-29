@@ -63,3 +63,16 @@ export const loginUser = async (req, res) => {
         res.status(500).json({ message: 'Server error during login' });
     }
 }
+
+export const getCurrentUser = async (req, res) => {
+    if (req.user) {
+        res.json({
+            _id: req.user._id,
+            username: req.user.username,
+            email: req.user.email,
+            avatar: req.user.avatar
+        });
+    } else {
+        res.status(404).json({ message: 'User not found' });
+    }
+}
