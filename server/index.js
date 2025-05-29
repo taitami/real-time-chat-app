@@ -8,6 +8,7 @@ import cors from "cors"
 import passport from 'passport'
 import passportConfig from './config/passport.js'
 import connectDB from './config/db.js'
+import authRoutes from './routes/authRoutes.js'
 
 dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 const PORT = process.env.PORT || 3500;
@@ -27,6 +28,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(passport.initialize());
 passportConfig(passport);
+
+app.use('/api/auth', authRoutes);
 
 connectDB();
 
