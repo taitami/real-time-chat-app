@@ -5,6 +5,9 @@ import path from "path";
 import http from "http"
 import dotenv from "dotenv"
 import cors from "cors"
+import passport from 'passport'
+import passportConfig from './config/passport.js'
+import connectDB from './config/db.js'
 
 dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 const PORT = process.env.PORT || 3500;
@@ -22,7 +25,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-import connectDB from './config/db.js'
+app.use(passport.initialize());
+passportConfig(passport);
+
 connectDB();
 
 const usersState = {
