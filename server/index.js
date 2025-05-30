@@ -9,6 +9,9 @@ import passport from 'passport'
 import passportConfig from './config/passport.js'
 import connectDB from './config/db.js'
 import authRoutes from './routes/authRoutes.js'
+import User from '../models/User.js';
+import Message from '../models/Message.js';
+import Room from '../models/Room.js';
 
 dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 const PORT = process.env.PORT || 3500;
@@ -33,13 +36,6 @@ app.use('/api/auth', authRoutes);
 
 connectDB();
 
-const usersState = {
-    users: [],
-    setUsers: function(newUsersArray) {
-        this.users = newUsersArray  
-    }
-}
-
 const server = http.createServer(app)
 const io = new Server(server, {
     cors: {
@@ -49,76 +45,26 @@ const io = new Server(server, {
     }
 });
 
-io.on('connection', socket => {
-    console.log(`user ${socket.id} connected`)
+const userSocketMap = new Map();
 
-    socket.on('enterRoom', ({name, room}) => {
-        const prevRoom = getUser(socket.id)?.room
-        if (prevRoom) {
-            socket.leave(prevRoom)
+export default function initializeSocketHandlers(io) {
+    io.use(async (socket, next) => {
+        const token = socket.handshake.auth.token;
+        if (!token) {
+            return next(new Error('Authentication error: No token provided'));
         }
-
-        const user = activateUser(socket.id, name, room)
-        if (prevRoom) {
-            io.to(prevRoom).emit("userList", {
-                users: getUsersInRoom(prevRoom)
-            })
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await User.findById(decoded.id).select('-password');
+            if (!user) {
+                return next(new Error('Authentication error: User not found'));
+            }
+            socket.user = user
+            next();
+        } catch (err) {
+            console.error("Socket auth error:", err.message);
+            return next(new Error('Authentication error: Invalid token'));
         }
+    });
 
-        socket.join(user.room)
-        io.to(user.room).emit("userList", {
-            users: getUsersInRoom(user.room)
-        })
-
-        io.emit("roomList", {
-            rooms: getAllActiveRooms()
-        })
-    })
-
-
-    socket.on('message', ({name, text}) => {
-        const room = getUser(socket.id)?.room
-        if (room) {
-            io.to(room).emit('message', buildMsg(name, text))
-        }
-    })
-
-    socket.on('activity', name => {
-        const room = getUser(socket.id)?.room
-        if (room) {
-            socket.broadcast.to(room).emit('activity', name)
-        }
-    })
-})
-
-const buildMsg = (name, text) => {
-    return { name, text, 
-        time: new Intl.DateTimeFormat("default", {
-            hour: "numeric",
-            minute: "numeric"
-        }).format(new Date())
-    }
-}
-
-const activateUser = (id, name, room) => {
-    const user = { id, name, room }
-    usersState.setUsers([
-        ...usersState.users.filter(user => user.id !== id),
-        user
-    ])
-    return user
-}
-
-const userLeavesApp = (id) => {
-    usersState.setUsers(
-        usersState.users.filter(user => user.id !== id)
-    )
-}
-
-const getUsersInRoom = (room) => {
-    return usersState.users.filter(user => user.room === room)
-}
-
-const getAllActiveRooms = () => {
-    return Array.from(new Set(usersState.users.map(user => user.room)))
 }
