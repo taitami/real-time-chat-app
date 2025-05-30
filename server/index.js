@@ -67,4 +67,102 @@ export default function initializeSocketHandlers(io) {
         }
     });
 
+    io.on('connection', (socket) => {
+        console.log(`User ${socket.user.username} (ID: ${socket.user._id}, Socket: ${socket.id}) connected`);
+        userSocketMap.set(socket.user._id.toString(), socket.id);
+
+        User.findByIdAndUpdate(socket.user._id, { onlineStatus: true, lastSeen: new Date() }).catch(console.error);
+
+        socket.on('joinRoom', async ({ roomId }) => {
+            try {
+                const room = await Room.findById(roomId).populate('participants', 'username avatar onlineStatus');
+                if (!room) {
+                    socket.emit('error', { message: 'Room not found' });
+                    return;
+                }
+                if (!room.participants.some(p => p._id.equals(socket.user._id))) {
+                    socket.emit('error', { message: 'You are not a member of this room' });
+                    return;
+                }
+
+                socket.join(roomId);
+                console.log(`${socket.user.username} joined room ${roomId}`);
+
+                socket.to(roomId).emit('userJoined', {
+                    userId: socket.user._id,
+                    username: socket.user.username,
+                    message: `${socket.user.username} has joined the room.`
+                });
+
+                io.to(roomId).emit('roomUsers', {
+                    roomId: roomId,
+                    users: room.participants 
+                });
+
+                const messages = await Message.find({ room: roomId })
+                    .sort({ createdAt: -1 })
+                    .limit(50)
+                    .populate('sender', 'username avatar');
+                socket.emit('messageHistory', { roomId, messages: messages.reverse() });
+
+            } catch (error) {
+                console.error('Join room error:', error);
+                socket.emit('error', { message: 'Error joining room' });
+            }
+        });
+
+        socket.on('sendMessage', async ({ roomId, content }) => {
+            if (!content.trim()) return;
+            try {
+                const room = await Room.findById(roomId);
+                if (!room) return socket.emit('error', { message: 'Room not found for message' });
+                if (!room.participants.some(p => p._id.equals(socket.user._id))) {
+                    return socket.emit('error', { message: 'Cannot send message to a room you are not part of' });
+                }
+
+                const message = new Message({
+                    sender: socket.user._id,
+                    room: roomId,
+                    content: content
+                });
+                await message.save();
+                await message.populate('sender', 'username avatar'); 
+
+                room.lastMessage = message._id;
+                await room.save();
+
+                io.to(roomId).emit('newMessage', message);
+            } catch (error) {
+                console.error('Send message error:', error);
+                socket.emit('error', { message: 'Error sending message' });
+            }
+        });
+
+        socket.on('typing', ({ roomId, isTyping }) => {
+            socket.to(roomId).emit('userTyping', {
+                userId: socket.user._id,
+                username: socket.user.username,
+                isTyping: isTyping
+            });
+        });
+
+        socket.on('disconnect', async () => {
+            console.log(`User ${socket.user.username} (ID: ${socket.user._id}, Socket: ${socket.id}) disconnected`);
+            userSocketMap.delete(socket.user._id.toString());
+            try {
+               const user = await User.findByIdAndUpdate(socket.user._id, { onlineStatus: false, lastSeen: new Date() });
+               if (user) {
+                   user.rooms.forEach(roomId => {
+                       io.to(roomId.toString()).emit('userLeft', {
+                           userId: user._id,
+                           username: user.username,
+                           message: `${user.username} has left.`
+                       });
+                   });
+               }
+            } catch (error) {
+                console.error("Error updating user status on disconnect:", error);
+            }
+        });
+    });
 }
