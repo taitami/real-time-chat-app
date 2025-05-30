@@ -12,6 +12,8 @@ import authRoutes from './routes/authRoutes.js'
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import Room from '../models/Room.js';
+import userRoutes from "./routes/userRoutes.js";
+import roomRoutes from "./routes/roomRoutes.js";
 
 dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 const PORT = process.env.PORT || 3500;
@@ -33,6 +35,8 @@ app.use(passport.initialize());
 passportConfig(passport);
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/rooms', roomRoutes);
 
 connectDB();
 
