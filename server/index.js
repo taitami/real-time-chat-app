@@ -150,6 +150,31 @@ export default function initializeSocketHandlers(io) {
             });
         });
 
+        socket.on('editMessage', async ({ messageId, newContent }) => {
+            if (!newContent || !newContent.trim()) {
+                return socket.emit('error', { message: 'Message content cannot be empty' });
+            }
+            try {
+                const message = await Message.findById(messageId);
+                if (!message) {
+                    return socket.emit('error', { message: 'Message not found' });
+                }
+      
+                if (message.sender.toString() !== socket.user._id.toString()) {
+                    return socket.emit('error', { message: 'You are not authorized to edit this message' });
+                }
+      
+                message.content = newContent.trim();
+                message.isEdited = true;
+      
+                await message.save();
+                await message.populate('sender', 'username avatar');
+            } catch (error) {
+                console.error('Edit message error:', error);
+                socket.emit('error', { message: 'Error editing message' });
+            }
+        });
+
         socket.on('disconnect', async () => {
             console.log(`User ${socket.user.username} (ID: ${socket.user._id}, Socket: ${socket.id}) disconnected`);
             userSocketMap.delete(socket.user._id.toString());
