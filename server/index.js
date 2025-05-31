@@ -169,9 +169,54 @@ export default function initializeSocketHandlers(io) {
       
                 await message.save();
                 await message.populate('sender', 'username avatar');
+
+                io.to(message.room.toString()).emit('messageUpdated', message);
             } catch (error) {
                 console.error('Edit message error:', error);
                 socket.emit('error', { message: 'Error editing message' });
+            }
+        });
+
+        socket.on('deleteMessage', async ({ messageId }) => {
+            try {
+                const message = await Message.findById(messageId);
+        
+                if (!message) {
+                    return socket.emit('error', { message: 'Message not found' });
+                }
+        
+                const roomId = message.room.toString(); 
+        
+                if (message.sender.toString() !== socket.user._id.toString()) {
+                   
+                    return socket.emit('error', { message: 'You are not authorized to delete this message' });
+                }
+        
+                await Message.findByIdAndDelete(messageId);
+        
+                const room = await Room.findById(roomId);
+                if (room) {
+                    if (room.lastMessage && room.lastMessage.toString() === messageId) {
+                        const previousMessages = await Message.find({ room: roomId })
+                            .sort({ createdAt: -1 }) 
+                            .limit(1);         
+        
+                        if (previousMessages.length > 0) {
+                            room.lastMessage = previousMessages[0]._id;
+                        } else {
+                            room.lastMessage = null;
+                        }
+                        await room.save();
+                    }
+                }
+        
+                io.to(roomId).emit('messageDeleted', {
+                    messageId: messageId,
+                    roomId: roomId,       
+                })
+            } catch (error) {
+                console.error('Delete message error:', error);
+                socket.emit('error', { message: 'Error deleting message' });
             }
         });
 
