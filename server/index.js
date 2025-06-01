@@ -51,6 +51,27 @@ const io = new Server(server, {
 
 const userSocketMap = new Map();
 
+async function* messageHistoryIterator(roomId, batchSize = 10, delay = 500) {
+    let skip = 0;
+    let hasMoreMessages = true;
+
+    while (hasMoreMessages) {
+        const messages = await Message.find({ room: roomId })
+            .sort({ createdAt: -1 }) 
+            .skip(skip)
+            .limit(batchSize)
+            .populate('sender', 'username avatar');
+
+        if (messages.length > 0) {
+            yield messages.reverse(); 
+            skip += messages.length;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+            hasMoreMessages = false;
+        }
+    }
+}
+
 export default function initializeSocketHandlers(io) {
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
@@ -103,11 +124,15 @@ export default function initializeSocketHandlers(io) {
                     users: room.participants 
                 });
 
-                const messages = await Message.find({ room: roomId })
-                    .sort({ createdAt: -1 })
-                    .limit(50)
-                    .populate('sender', 'username avatar');
-                socket.emit('messageHistory', { roomId, messages: messages.reverse() });
+                const historyIterator = messageHistoryIterator(roomId, 10, 300); 
+                for await (const messageBatch of historyIterator) {
+                     if (socket.connected) { 
+                        socket.emit('messageHistoryBatch', { roomId, messages: messageBatch });
+                    } else {
+                        break; 
+                    }
+                }
+  socket.emit('messageHistoryComplete', { roomId });
 
             } catch (error) {
                 console.error('Join room error:', error);
