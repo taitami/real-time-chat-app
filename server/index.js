@@ -14,6 +14,7 @@ import Message from '../models/Message.js';
 import Room from '../models/Room.js';
 import userRoutes from "./routes/userRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
+import { createMemoizationLru } from '../utils/memoizeLru.js';
 
 dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 const PORT = process.env.PORT || 3500;
@@ -71,6 +72,23 @@ async function* messageHistoryIterator(roomId, batchSize = 10, delay = 500) {
         }
     }
 }
+
+function _prepareSenderData(senderDbObject) {
+    if (!senderDbObject) return null;
+    return {
+        _id: senderDbObject._id,
+        username: senderDbObject.username,
+        avatar: senderDbObject.avatar,
+    };
+}
+
+const getPreparedSenderData = createMemoizationLru(
+    _prepareSenderData,
+    {
+        cacheSize: 100,
+        keyGenerator: (args) => args[0] && args[0]._id ? `sender_socket_${args[0]._id.toString()}` : 'invalid_sender_key'
+    }
+);
 
 export default function initializeSocketHandlers(io) {
     io.use(async (socket, next) => {
@@ -141,38 +159,47 @@ export default function initializeSocketHandlers(io) {
         });
 
         socket.on('sendMessage', async ({ roomId, content }) => {
-            if (!content.trim()) return;
+            if (!content || !content.trim()) return; 
             try {
                 const room = await Room.findById(roomId);
-                if (!room) return socket.emit('error', { message: 'Room not found for message' });
+                if (!room) {
+                    socket.emit('error', { message: 'Room not found for message' });
+                    return;
+                }
                 if (!room.participants.some(p => p._id.equals(socket.user._id))) {
-                    return socket.emit('error', { message: 'Cannot send message to a room you are not part of' });
+                    socket.emit('error', { message: 'Cannot send message to a room you are not part of' });
+                    return;
                 }
 
                 const message = new Message({
-                    sender: socket.user._id,
+                    sender: socket.user._id, 
                     room: roomId,
-                    content: content
+                    content: content.trim()
                 });
                 await message.save();
-                await message.populate('sender', 'username avatar'); 
+                await message.populate('sender', 'username avatar _id'); 
+
+                const senderObjectForMemo = message.sender.toObject ? message.sender.toObject() : message.sender;
+                const preparedSenderData = getMemoizedSenderDataForSocket(senderObjectForMemo);
 
                 room.lastMessage = message._id;
                 await room.save();
 
-                io.to(roomId).emit('newMessage', message);
+                const messageForClient = {
+                    _id: message._id,
+                    content: message.content,
+                    room: message.room, 
+                    sender: preparedSenderData, 
+                    createdAt: message.createdAt,
+                    isEdited: message.isEdited,
+                };
+
+                io.to(roomId).emit('newMessage', messageForClient);
+
             } catch (error) {
                 console.error('Send message error:', error);
                 socket.emit('error', { message: 'Error sending message' });
             }
-        });
-
-        socket.on('typing', ({ roomId, isTyping }) => {
-            socket.to(roomId).emit('userTyping', {
-                userId: socket.user._id,
-                username: socket.user.username,
-                isTyping: isTyping
-            });
         });
 
         socket.on('editMessage', async ({ messageId, newContent }) => {
