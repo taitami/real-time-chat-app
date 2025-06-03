@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import path from "path";
 import { fileURLToPath } from "url";
+import { withLogging, LogLevel } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +16,7 @@ const generateToken = (id) => {
     })
 }
 
-export const registerUser = async (req, res) => {
+export const registerUserOriginal = async (req, res) => {
     const {username, email, password} = req.body;
     try {
         const userExists = await User.findOne({ $or: [{email}, {username}] });
@@ -40,6 +41,12 @@ export const registerUser = async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 }
+
+export const registerUser = withLogging(registerUserOriginal, {
+    functionName: 'authController.registerUser',
+    logLevel: LogLevel.INFO, 
+    profileTime: true,       
+});
 
 export const loginUser = async (req, res) => {
     const {emailOrUsername, password} = req.body;
